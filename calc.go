@@ -814,6 +814,22 @@ type formulaFuncs struct {
 //	Z.TEST
 //	ZTEST
 func (f *File) CalcCellValue(sheet, cell string, opts ...Options) (result string, err error) {
+	cacheKey := sheet + "!" + cell
+
+	if cached, ok := f.cache.Get(cacheKey); ok {
+		return cached.value, cached.err
+	}
+
+	result, err = f.computeCellValue(sheet, cell, opts...)
+
+	f.cache.Add(cacheKey, formulaResult{result, err})
+
+	return result, err
+}
+
+// computeCellValue
+// reference
+func (f *File) computeCellValue(sheet, cell string, opts ...Options) (result string, err error) {
 	options := f.getOptions(opts...)
 	var (
 		rawCellValue = options.RawCellValue

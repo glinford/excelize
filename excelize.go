@@ -57,6 +57,7 @@ type File struct {
 	VMLDrawing       map[string]*vmlDrawing
 	VolatileDeps     *xlsxVolTypes
 	WorkBook         *xlsxWorkbook
+	cache            *Cache
 }
 
 // charsetTranscoderFn set user-defined codepage transcoder function for open
@@ -148,7 +149,20 @@ func newFile() *File {
 		VMLDrawing:       make(map[string]*vmlDrawing),
 		Relationships:    sync.Map{},
 		CharsetReader:    charset.NewReaderLabel,
+		cache:            NewCache(),
 	}
+}
+
+// SetCacheLimit disables the cache
+func (f *File) DisableCache() {
+	f.cache.DisableCache()
+}
+
+// SetCacheLimit sets the maximum number of entries in the cache.
+// If limit is -1 or 0, the cache will have no size limit.
+// If limit is a positive number, the cache will evict the least recently used entries when the limit is exceeded.
+func (f *File) SetCacheLimit(limit int) {
+	f.cache.SetLimit(limit)
 }
 
 // checkOpenReaderOptions check and validate options field value for open
