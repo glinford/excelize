@@ -126,6 +126,7 @@ func (f *File) GetCellType(sheet, cell string) (CellType, error) {
 // the cell value as number 0 or 60, then create and bind the date-time number
 // format style for the cell.
 func (f *File) SetCellValue(sheet, cell string, value interface{}) error {
+	f.cache.Invalidate()
 	var err error
 	switch v := value.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
@@ -204,6 +205,7 @@ func (f *File) removeFormula(c *xlsxC, ws *xlsxWorksheet, sheet string) error {
 
 // setCellIntFunc is a wrapper of SetCellInt.
 func (f *File) setCellIntFunc(sheet, cell string, value interface{}) error {
+	f.cache.Invalidate()
 	var err error
 	switch v := value.(type) {
 	case int:
@@ -233,6 +235,7 @@ func (f *File) setCellIntFunc(sheet, cell string, value interface{}) error {
 // setCellTimeFunc provides a method to process time type of value for
 // SetCellValue.
 func (f *File) setCellTimeFunc(sheet, cell string, value time.Time) error {
+	f.cache.Invalidate()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
 		return err
@@ -289,6 +292,7 @@ func setCellDuration(value time.Duration) (t string, v string) {
 // SetCellInt provides a function to set int type value of a cell by given
 // worksheet name, cell reference and cell value.
 func (f *File) SetCellInt(sheet, cell string, value int64) error {
+	f.cache.Invalidate()
 	f.mu.Lock()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
@@ -317,6 +321,7 @@ func setCellInt(value int64) (t string, v string) {
 // SetCellUint provides a function to set uint type value of a cell by given
 // worksheet name, cell reference and cell value.
 func (f *File) SetCellUint(sheet, cell string, value uint64) error {
+	f.cache.Invalidate()
 	f.mu.Lock()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
@@ -346,6 +351,7 @@ func setCellUint(value uint64) (t string, v string) {
 // SetCellBool provides a function to set bool type value of a cell by given
 // worksheet name, cell reference and cell value.
 func (f *File) SetCellBool(sheet, cell string, value bool) error {
+	f.cache.Invalidate()
 	f.mu.Lock()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
@@ -386,6 +392,7 @@ func setCellBool(value bool) (t string, v string) {
 //	var x float32 = 1.325
 //	f.SetCellFloat("Sheet1", "A1", float64(x), 2, 32)
 func (f *File) SetCellFloat(sheet, cell string, value float64, precision, bitSize int) error {
+	f.cache.Invalidate()
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return f.SetCellStr(sheet, cell, fmt.Sprint(value))
 	}
@@ -421,6 +428,7 @@ func (c *xlsxC) setCellFloat(value float64, precision, bitSize int) {
 // SetCellStr provides a function to set string type value of a cell. Total
 // number of characters that a cell can contain 32767 characters.
 func (f *File) SetCellStr(sheet, cell, value string) error {
+	f.cache.Invalidate()
 	f.mu.Lock()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
@@ -648,6 +656,7 @@ func (c *xlsxC) getValueFrom(f *File, d *xlsxSST, raw bool) (string, error) {
 // SetCellDefault provides a function to set string type value of a cell as
 // default format without escaping the cell.
 func (f *File) SetCellDefault(sheet, cell, value string) error {
+	f.cache.Invalidate()
 	f.mu.Lock()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
@@ -784,6 +793,7 @@ type FormulaOpts struct {
 //	    }
 //	}
 func (f *File) SetCellFormula(sheet, cell, formula string, opts ...FormulaOpts) error {
+	f.cache.Invalidate()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
 		return err
@@ -1016,6 +1026,7 @@ func (f *File) removeHyperLink(ws *xlsxWorksheet, sheet, cell string) error {
 //
 //	err := f.SetCellHyperLink("Sheet1", "A3", "Sheet1!A40", "Location")
 func (f *File) SetCellHyperLink(sheet, cell, link, linkType string, opts ...HyperlinkOpts) error {
+	f.cache.Invalidate()
 	// Check for correct cell name
 	if _, _, err := SplitCellName(cell); err != nil {
 		return err
@@ -1337,6 +1348,7 @@ func setRichText(runs []RichTextRun) ([]xlsxR, error) {
 //	    }
 //	}
 func (f *File) SetCellRichText(sheet, cell string, runs []RichTextRun) error {
+	f.cache.Invalidate()
 	ws, err := f.workSheetReader(sheet)
 	if err != nil {
 		return err
