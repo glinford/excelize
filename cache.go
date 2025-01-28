@@ -6,7 +6,7 @@ import (
 )
 
 type formulaResult struct {
-	value string
+	value formulaArg
 	err   error
 }
 
@@ -16,6 +16,8 @@ type Cache struct {
 	mutex    sync.RWMutex
 	limit    int
 	disabled bool
+	hits     int
+	misses   int
 }
 
 func NewCache() *Cache {
@@ -84,8 +86,10 @@ func (c *Cache) Get(key string) (formulaResult, bool) {
 	if elem, ok := c.cache[key]; ok {
 		// Move the accessed element to the front of the list (LRU)
 		c.list.MoveToFront(elem)
+		c.hits++
 		return elem.Value.(formulaResult), true
 	}
+	c.misses++
 	return formulaResult{}, false
 }
 

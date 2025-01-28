@@ -8,29 +8,42 @@ import (
 func TestCacheAddGet(t *testing.T) {
 	cache := NewCache()
 	key := "Sheet1!A1"
-	value := formulaResult{value: "42", err: nil}
+	value := formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 42},
+		err:   nil,
+	}
 	cache.Add(key, value)
 
 	result, ok := cache.Get(key)
 	if !ok {
 		t.Fatalf("Expected to find key %s in cache, but it was not found", key)
 	}
-	if result.value != value.value || result.err != value.err {
-		t.Fatalf("Expected value %v, got %v", value, result)
+	if result.value.Number != value.value.Number || result.value.Type != value.value.Type {
+		t.Fatalf("Expected value %v, got %v", value.value, result.value)
 	}
 }
 
 func TestCacheLRUEviction(t *testing.T) {
 	cache := NewCache()
 	cache.SetLimit(2)
-	cache.Add("Sheet1!A1", formulaResult{value: "42", err: nil})
-	cache.Add("Sheet1!A2", formulaResult{value: "100", err: nil})
+
+	cache.Add("Sheet1!A1", formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 42},
+		err:   nil,
+	})
+	cache.Add("Sheet1!A2", formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 100},
+		err:   nil,
+	})
 
 	// Access the first item to make it recently used
 	cache.Get("Sheet1!A1")
 
 	// Add a third item, which should evict the least recently used item ("Sheet1!A2")
-	cache.Add("Sheet1!A3", formulaResult{value: "200", err: nil})
+	cache.Add("Sheet1!A3", formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 200},
+		err:   nil,
+	})
 
 	_, ok := cache.Get("Sheet1!A2")
 	if ok {
@@ -49,7 +62,10 @@ func TestCacheLRUEviction(t *testing.T) {
 func TestCacheDisable(t *testing.T) {
 	cache := NewCache()
 	key := "Sheet1!A1"
-	value := formulaResult{value: "42", err: nil}
+	value := formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 42},
+		err:   nil,
+	}
 	cache.Add(key, value)
 
 	cache.DisableCache()
@@ -59,7 +75,10 @@ func TestCacheDisable(t *testing.T) {
 		t.Fatalf("Expected cache to be disabled, but key %s was found in the cache", key)
 	}
 
-	cache.Add("Sheet1!A2", formulaResult{value: "100", err: nil})
+	cache.Add("Sheet1!A2", formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 100},
+		err:   nil,
+	})
 	_, ok = cache.Get("Sheet1!A2")
 	if ok {
 		t.Fatalf("Expected cache to be disabled, but key Sheet1!A2 was found in the cache")
@@ -70,7 +89,10 @@ func TestCacheInvalidate(t *testing.T) {
 	cache := NewCache()
 
 	key := "Sheet1!A1"
-	value := formulaResult{value: "42", err: nil}
+	value := formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 42},
+		err:   nil,
+	}
 	cache.Add(key, value)
 
 	cache.Invalidate()
@@ -84,8 +106,15 @@ func TestCacheInvalidate(t *testing.T) {
 func TestCacheSetLimit(t *testing.T) {
 	cache := NewCache()
 	cache.SetLimit(1)
-	cache.Add("Sheet1!A1", formulaResult{value: "42", err: nil})
-	cache.Add("Sheet1!A2", formulaResult{value: "100", err: nil})
+
+	cache.Add("Sheet1!A1", formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 42},
+		err:   nil,
+	})
+	cache.Add("Sheet1!A2", formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 100},
+		err:   nil,
+	})
 
 	_, ok := cache.Get("Sheet1!A1")
 	if ok {
@@ -101,7 +130,10 @@ func TestCacheDisabledAddGet(t *testing.T) {
 	cache := NewCache()
 	cache.DisableCache()
 	key := "Sheet1!A1"
-	value := formulaResult{value: "42", err: nil}
+	value := formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 42},
+		err:   nil,
+	}
 	cache.Add(key, value)
 	_, ok := cache.Get(key)
 	if ok {
@@ -113,7 +145,10 @@ func TestCacheDisabledInvalidate(t *testing.T) {
 	cache := NewCache()
 	cache.DisableCache()
 	key := "Sheet1!A1"
-	value := formulaResult{value: "42", err: nil}
+	value := formulaResult{
+		value: formulaArg{Type: ArgNumber, Number: 42},
+		err:   nil,
+	}
 	cache.Add(key, value)
 	cache.Invalidate()
 
@@ -177,5 +212,27 @@ func BenchmarkWithoutCache(b *testing.B) {
 				_, _ = f.CalcCellValue("Sheet1", "E"+strconv.Itoa(j)) // Subtract A from D
 			}
 		}
+	}
+}
+
+func TestCacheHits(t *testing.T) {
+	f := NewFile()
+	f.SetCacheLimit(10)
+	f.SetCellValue("Sheet1", "A1", 50)
+	f.SetCellFormula("Sheet1", "A2", "=A1*2")
+	f.SetCellFormula("Sheet1", "A3", "=A1+A2")
+	f.SetCellFormula("Sheet1", "A4", "=A1+A2+A3+10")
+
+	// Initial calculation
+	_, _ = f.CalcCellValue("Sheet1", "A1")
+	_, _ = f.CalcCellValue("Sheet1", "A2") // will hit 1 cache when accessing A1
+	_, _ = f.CalcCellValue("Sheet1", "A3") // will hit 2 cache when accessing A1 and A2
+	_, _ = f.CalcCellValue("Sheet1", "A4") // will hit 4 cache when accessing A1, A2, A3
+
+	if f.cache.hits != 7 {
+		t.Fatalf("Expected 7 cache hits, got %d", f.cache.hits)
+	}
+	if f.cache.misses != 3 {
+		t.Fatalf("Expected 3 cache misses, got %d", f.cache.misses)
 	}
 }
