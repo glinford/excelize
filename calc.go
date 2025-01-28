@@ -814,17 +814,7 @@ type formulaFuncs struct {
 //	Z.TEST
 //	ZTEST
 func (f *File) CalcCellValue(sheet, cell string, opts ...Options) (result string, err error) {
-	cacheKey := sheet + "!" + cell
-
-	if cached, ok := f.cache.Get(cacheKey); ok {
-		return cached.value, cached.err
-	}
-
-	result, err = f.computeCellValue(sheet, cell, opts...)
-
-	f.cache.Add(cacheKey, formulaResult{result, err})
-
-	return result, err
+	return f.computeCellValue(sheet, cell, opts...)
 }
 
 // computeCellValue
@@ -875,8 +865,7 @@ func (f *File) calcCellValue(ctx *calcContext, sheet, cell string) (result formu
 	if tokens == nil {
 		return f.cellResolver(ctx, sheet, cell)
 	}
-	result, err = f.evalInfixExp(ctx, sheet, cell, tokens)
-	return
+	return f.evalInfixExp(ctx, sheet, cell, tokens)
 }
 
 // getPriority calculate arithmetic operator priority.
@@ -1629,8 +1618,22 @@ func prepareValueRef(cr cellRef, valueRange []int) {
 	}
 }
 
-// cellResolver calc cell value by given worksheet name, cell reference and context.
 func (f *File) cellResolver(ctx *calcContext, sheet, cell string) (formulaArg, error) {
+	cacheKey := sheet + "!" + cell
+
+	if cached, ok := f.cache.Get(cacheKey); ok {
+		return cached.value, cached.err
+	}
+
+	arg, err := f.cellResolverCompute(ctx, sheet, cell)
+
+	f.cache.Add(cacheKey, formulaResult{arg, err})
+
+	return arg, err
+}
+
+// cellResolver calc cell value by given worksheet name, cell reference and context.
+func (f *File) cellResolverCompute(ctx *calcContext, sheet, cell string) (formulaArg, error) {
 	var (
 		arg   formulaArg
 		value string
