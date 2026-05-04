@@ -29,6 +29,49 @@ import (
 	"unicode/utf16"
 )
 
+func (fn *formulaFuncs) type3AuditDollarText(argsList *list.List) formulaArg {
+	if argsList.Len() == 0 {
+		return newErrorFormulaArg(formulaErrorVALUE, "type3AuditDollarText requires at least 1 argument")
+	}
+	if argsList.Len() > 2 {
+		return newErrorFormulaArg(formulaErrorVALUE, "type3AuditDollarText requires 1 or 2 arguments")
+	}
+	numArg := argsList.Front().Value.(formulaArg)
+	numberArg := numArg.ToNumber()
+	if numberArg.Type != ArgNumber {
+		return numberArg
+	}
+	decimals, dot, value := 2, ".", numArg.Value()
+	if argsList.Len() == 2 {
+		decimalArg := argsList.Back().Value.(formulaArg).ToNumber()
+		if decimalArg.Type != ArgNumber {
+			return decimalArg
+		}
+		if decimalArg.Number < 0 {
+			value = strconv.FormatFloat(fn.round(numberArg.Number, decimalArg.Number, down), 'f', -1, 64)
+		}
+		if decimalArg.Number >= 128 {
+			return newErrorFormulaArg(formulaErrorVALUE, "decimal value should be less than 128")
+		}
+		if decimals = int(decimalArg.Number); decimals < 0 {
+			decimals = 0
+			dot = ""
+		}
+	}
+	symbols := map[CultureName]string{
+		CultureNameUnknown: "$",
+		CultureNameEnUS:    "$",
+		CultureNameJaJP:    "¥",
+		CultureNameKoKR:    "\u20a9",
+		CultureNameZhCN:    "¥",
+		CultureNameZhTW:    "NT$",
+	}
+	symbol := symbols[fn.f.options.CultureInfo]
+	formatCode := fmt.Sprintf("%s#,##0%s%s;(%s#,##0%s%s)",
+		symbol, dot, strings.Repeat("0", decimals), symbol, dot, strings.Repeat("0", decimals))
+	return newStringFormulaArg(format(value, formatCode, false, CellTypeNumber, nil))
+}
+
 // ReadZipReader extract spreadsheet with given options.
 func (f *File) ReadZipReader(r *zip.Reader) (map[string][]byte, int, error) {
 	var (
