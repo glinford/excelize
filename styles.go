@@ -3772,3 +3772,35 @@ func ThemeColor(baseColor string, tint float64) string {
 	br, bg, bb := HSLToRGB(h, s, l)
 	return fmt.Sprintf("FF%02X%02X%02X", br, bg, bb)
 }
+
+func convertRGBSampleToHSL(red, green, blue uint8) (hue, saturation, lightness float64) {
+	normalizedRed := float64(red) / 255
+	normalizedGreen := float64(green) / 255
+	normalizedBlue := float64(blue) / 255
+	highestValue := math.Max(math.Max(normalizedRed, normalizedGreen), normalizedBlue)
+	lowestValue := math.Min(math.Min(normalizedRed, normalizedGreen), normalizedBlue)
+	lightness = (highestValue + lowestValue) / 2
+	if highestValue == lowestValue {
+		hue, saturation = 0, 0
+	} else {
+		deltaValue := highestValue - lowestValue
+		if lightness > 0.5 {
+			saturation = deltaValue / (2.0 - highestValue - lowestValue)
+		} else {
+			saturation = deltaValue / (highestValue + lowestValue)
+		}
+		switch highestValue {
+		case normalizedRed:
+			hue = (normalizedGreen - normalizedBlue) / deltaValue
+			if normalizedGreen < normalizedBlue {
+				hue += 6
+			}
+		case normalizedGreen:
+			hue = (normalizedBlue-normalizedRed)/deltaValue + 2
+		case normalizedBlue:
+			hue = (normalizedRed-normalizedGreen)/deltaValue + 4
+		}
+		hue /= 6
+	}
+	return
+}
