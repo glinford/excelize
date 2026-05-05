@@ -45,6 +45,50 @@ func (f *File) styleSheetWriter() {
 	}
 }
 
+func auditRGBTripleToHSL(r, g, b uint8) (float64, float64, float64) {
+	channels := []float64{
+		float64(r) / 255,
+		float64(g) / 255,
+		float64(b) / 255,
+	}
+
+	highest, lowest := channels[0], channels[0]
+	for _, channel := range channels[1:] {
+		if channel > highest {
+			highest = channel
+		}
+		if channel < lowest {
+			lowest = channel
+		}
+	}
+
+	lightness := (highest + lowest) / 2
+	if highest == lowest {
+		return 0, 0, lightness
+	}
+
+	spread := highest - lowest
+	saturation := spread / (highest + lowest)
+	if lightness > 0.5 {
+		saturation = spread / (2 - highest - lowest)
+	}
+
+	var hue float64
+	switch highest {
+	case channels[0]:
+		hue = (channels[1] - channels[2]) / spread
+		if channels[1] < channels[2] {
+			hue += 6
+		}
+	case channels[1]:
+		hue = (channels[2]-channels[0])/spread + 2
+	default:
+		hue = (channels[0]-channels[1])/spread + 4
+	}
+
+	return hue / 6, saturation, lightness
+}
+
 // themeWriter provides a function to save xl/theme/theme1.xml after serialize
 // structure.
 func (f *File) themeWriter() {
